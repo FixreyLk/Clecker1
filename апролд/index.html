@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Meme Slayer: Rebirth God</title>
+    <style>
+        :root { --neon: #00ffcc; --gold: #ffcc00; --red: #ff0044; --bg: #050508; --purple: #bc13fe; }
+        * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: white; font-family: 'Arial Black', sans-serif; margin: 0; overflow: hidden; user-select: none; }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px); }
+            50% { transform: translate(-3px, 2px); }
+            100% { transform: translate(0, 0); }
+        }
+        .shaking { animation: shake 0.2s infinite; }
+
+        /* ИНТЕРФЕЙС */
+        #ui { position: fixed; top: 0; width: 100%; padding: 10px; z-index: 1000; pointer-events: none; text-align: center; }
+        #balance { font-size: 2.2rem; color: var(--gold); text-shadow: 0 0 15px gold; }
+        #rebirth-count { color: var(--purple); font-size: 1rem; margin-top: 5px; }
+        .hp-bar-bg { width: 200px; height: 12px; background: #222; border: 1px solid white; margin: 5px auto; border-radius: 6px; overflow: hidden; }
+        #hp-fill { height: 100%; background: var(--neon); width: 100%; transition: width 0.3s; }
+
+        /* МАГАЗИН КНОПКА */
+        #shop-btn { position: fixed; top: 20px; right: 20px; width: 60px; height: 60px; background: var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; pointer-events: auto; z-index: 1100; box-shadow: 0 0 15px var(--gold); border: 3px solid #fff; }
+
+        /* ИГРОВАЯ ЗОНА */
+        #game-view { width: 100vw; height: 100vh; position: relative; display: flex; align-items: center; justify-content: center; }
+        #hero-click { width: 200px; transition: 0.1s; filter: drop-shadow(0 0 20px var(--neon)); cursor: pointer; }
+        #hero-click:active { transform: scale(0.9); }
+
+        /* ИГРОК И БОСС (как в прошлых версиях) */
+        #player { position: absolute; width: 60px; height: 60px; display: none; z-index: 500; transform: translate(-50%, -50%); }
+        #sword { position: absolute; top: 50%; left: 50%; width: 80px; height: 10px; background: linear-gradient(90deg, #fff, var(--neon)); transform-origin: left center; border-radius: 5px; box-shadow: 0 0 20px var(--neon); transition: transform 0.1s; }
+        #boss { position: absolute; width: 180px; height: 180px; display: none; z-index: 400; }
+        .boss-hit { filter: brightness(3) !important; }
+        .bullet { position: absolute; width: 15px; height: 15px; background: red; border-radius: 50%; z-index: 450; }
+
+        /* ОКНА */
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 2000; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 50px; overflow-y: auto; }
+        .shop-item { background: #111; border: 2px solid var(--neon); padding: 15px; margin: 10px; width: 90%; max-width: 400px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px; }
+        .btn-buy { background: var(--gold); color: black; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-buy:disabled { background: #555; cursor: not-allowed; }
+        
+        #rebirth-panel { border-color: var(--purple); background: #1a0026; }
+
+        /* МОБИЛЬНОЕ УПРАВЛЕНИЕ */
+        #controls { display: none; position: fixed; bottom: 80px; width: 100%; height: 150px; z-index: 1500; pointer-events: none; }
+        .joy-area { position: absolute; left: 20px; bottom: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; pointer-events: auto; }
+        #stick { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; background: var(--neon); border-radius: 50%; }
+        .btn-grid { position: absolute; right: 20px; bottom: 0; display: grid; grid-template-areas: ". s ." "z . c" ". x ."; gap: 8px; pointer-events: auto; }
+        .btn { width: 50px; height: 50px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; }
+
+        #shelf { position: fixed; bottom: 0; width: 100%; height: 70px; background: #000; display: flex; padding: 10px; border-top: 1px solid #333; overflow-x: auto; z-index: 1050; }
+        .skin { width: 45px; height: 45px; margin-right: 10px; opacity: 0.5; }
+        .skin.active { opacity: 1; border: 2px solid var(--neon); }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div id="balance">0</div>
+    <div id="rebirth-count">ПЕРЕРОЖДЕНИЙ: 0 (Множитель: x1)</div>
+    <div class="hp-bar-bg"><div id="hp-fill"></div></div>
+    <div id="info" style="color: var(--neon); font-size: 0.7rem;">БОСС ЧЕРЕЗ: 150</div>
+</div>
+
+<div id="shop-btn" onclick="toggleShop()">🛒</div>
+
+<div id="game-view">
+    <img id="hero-click" src="Без названия (1).jpg">
+    <div id="boss">
+        <div class="hp-bar-bg" style="width: 100%; height: 6px; position: absolute; top: -15px;"><div id="boss-hp" style="width: 100%; height: 100%; background: var(--red);"></div></div>
+        <img id="boss-img" src="Без названия (5).jpg" style="width: 100%;">
+    </div>
+    <div id="player">
+        <img id="p-img" src="Без названия (1).jpg" style="width:100%; height:100%;">
+        <div id="sword"></div>
+    </div>
+</div>
+
+<div id="shop-overlay" class="overlay">
+    <h1 style="color: var(--gold);">МЕМ-МАРКЕТ</h1>
+    
+    <div class="shop-item">
+        <div><b>СИЛА КЛИКА (+5)</b><br><small id="pwr-cost">Цена: 50</small></div>
+        <button class="btn-buy" onclick="buyUpgrade('pwr')">КУПИТЬ</button>
+    </div>
+
+    <div class="shop-item">
+        <div><b>АВТО-ТАПЕР (1/сек)</b><br><small id="auto-cost">Цена: 500</small></div>
+        <button class="btn-buy" onclick="buyUpgrade('auto')">КУПИТЬ</button>
+    </div>
+
+    <div id="rebirth-panel" class="shop-item" style="border-color: var(--purple); margin-top: 30px;">
+        <div><b style="color: var(--purple);">ПЕРЕРОЖДЕНИЕ (x2 ДОХОД)</b><br><small id="rebirth-cost">Цена: 10,000</small></div>
+        <button class="btn-buy" style="background: var(--purple); color: white;" onclick="doRebirth()">СБРОСИТЬ</button>
+    </div>
+
+    <button onclick="toggleShop()" style="margin-top: 20px; padding: 10px 40px; background: #333; color: white; border: none; border-radius: 10px;">ЗАКРЫТЬ</button>
+</div>
+
+<div id="controls">
+    <div class="joy-area" id="joy"><div id="stick"></div></div>
+    <div class="btn-grid">
+        <div class="btn" style="grid-area: s" onpointerdown="setSword(-90)">S</div>
+        <div class="btn" style="grid-area: z" onpointerdown="setSword(180)">Z</div>
+        <div class="btn" style="grid-area: x" onpointerdown="setSword(90)">X</div>
+        <div class="btn" style="grid-area: c" onpointerdown="setSword(0)">C</div>
+    </div>
+</div>
+
+<div id="death-screen" class="overlay">
+    <h1 style="color:red; font-size: 3rem;">ТЫ ПРОИГРАЛ</h1>
+    <button onclick="location.reload()" style="padding:15px 30px; background:red; color:white; border:none;">ЗАНОВО</button>
+</div>
+
+<div id="shelf"></div>
+
+<script>
+    const skins = ["Без названия (1).jpg", "i hate you _ markhyuck.jpg", "PMOYS(Denki Kaminari X Reader) (Texting AU) - 34 ~ I Am Not A Tsundere.jpg", "Без названия (3).jpg", "Без названия (4).jpg", "Cringe.jpg", "Без названия (2).jpg"];
+    
+    let state = {
+        coins: 0, taps: 0, pwr: 5, autoPwr: 0,
+        rebirths: 0, rebirthCost: 10000,
+        pwrCost: 50, autoCost: 500,
+        hp: 100, maxHp: 100,
+        bossActive: false, bossHp: 100, bMax: 100,
+        px: window.innerWidth/2, py: window.innerHeight/2,
+        swordDeg: 0, skin: skins[0], bullets: []
+    };
+
+    function updateUI() {
+        const mult = state.rebirths + 1;
+        document.getElementById('balance').innerText = Math.floor(state.coins);
+        document.getElementById('rebirth-count').innerText = `ПЕРЕРОЖДЕНИЙ: ${state.rebirths} (Множитель: x${mult})`;
+        document.getElementById('info').innerText = `БОСС ЧЕРЕЗ: ${150 - (state.taps % 150)}`;
+        
+        document.getElementById('pwr-cost').innerText = `Цена: ${state.pwrCost}`;
+        document.getElementById('auto-cost').innerText = `Цена: ${state.autoCost}`;
+        document.getElementById('rebirth-cost').innerText = `Цена: ${state.rebirthCost.toLocaleString()}`;
+        
+        state.maxHp = 100 + (state.taps * 1);
+        document.getElementById('hp-fill').style.width = (state.hp / state.maxHp * 100) + "%";
+        document.getElementById('hero-click').src = state.skin;
+        document.getElementById('p-img').src = state.skin;
+    }
+
+    // КЛИК
+    document.getElementById('hero-click').onpointerdown = (e) => {
+        const gain = state.pwr * (state.rebirths + 1);
+        state.coins += gain;
+        state.taps++;
+        if(state.taps % 150 === 0) startBoss();
+        updateUI();
+    };
+
+    // АВТО-КЛИКЕР
+    setInterval(() => {
+        if(state.autoPwr > 0) {
+            state.coins += (state.autoPwr * (state.rebirths + 1)) / 10;
+            updateUI();
+        }
+    }, 100);
+
+    // МАГАЗИН ЛОГИКА
+    function toggleShop() {
+        const shop = document.getElementById('shop-overlay');
+        shop.style.display = shop.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function buyUpgrade(type) {
+        if(type === 'pwr' && state.coins >= state.pwrCost) {
+            state.coins -= state.pwrCost;
+            state.pwr += 5;
+            state.pwrCost = Math.floor(state.pwrCost * 1.5);
+        }
+        if(type === 'auto' && state.coins >= state.autoCost) {
+            state.coins -= state.autoCost;
+            state.autoPwr += 1;
+            state.autoCost = Math.floor(state.autoCost * 1.8);
+        }
+        updateUI();
+    }
+
+    function doRebirth() {
+        if(state.coins >= state.rebirthCost) {
+            state.rebirths++;
+            state.coins = 0;
+            state.taps = 0;
+            state.pwr = 5;
+            state.autoPwr = 0;
+            state.pwrCost = 50;
+            state.autoCost = 500;
+            
+            // Новая цена перерождения: + 1,000,000
+            state.rebirthCost += 1000000;
+            
+            toggleShop();
+            alert("ВЫ ПЕРЕРОДИЛИСЬ! Сила увеличена!");
+            updateUI();
+        } else {
+            alert("Недостаточно монет для перерождения!");
+        }
+    }
+
+    // --- БОСС И УПРАВЛЕНИЕ (ОСТАВЛЯЕМ ИЗ ПРОШЛОЙ ВЕРСИИ) ---
+    function setSword(deg) { state.swordDeg = deg; document.getElementById('sword').style.transform = `rotate(${deg}deg)`; }
+    
+    window.onkeydown = (e) => {
+        if(e.code === 'KeyS') setSword(-90); if(e.code === 'KeyX') setSword(90);
+        if(e.code === 'KeyZ') setSword(180); if(e.code === 'KeyC') setSword(0);
+    };
+
+    const joy = document.getElementById('joy');
+    const stick = document.getElementById('stick');
+    let joyActive = false;
+    joy.onpointerdown = () => joyActive = true;
+    window.onpointerup = () => { joyActive = false; stick.style.left = '35px'; stick.style.top = '35px'; };
+
+    window.onpointermove = (e) => {
+        if(!state.bossActive) return;
+        if(e.pointerType === 'mouse') { state.px = e.clientX; state.py = e.clientY; } 
+        else if(joyActive) {
+            const rect = joy.getBoundingClientRect();
+            const dx = e.clientX - (rect.left + 60), dy = e.clientY - (rect.top + 60);
+            const angle = Math.atan2(dy, dx);
+            state.px += Math.cos(angle) * 8; state.py += Math.sin(angle) * 8;
+        }
+    };
+
+    function startBoss() {
+        state.bossActive = true;
+        state.bossHp = 500 * (state.rebirths + 1);
+        state.bMax = state.bossHp;
+        state.hp = state.maxHp;
+        document.getElementById('hero-click').style.display = 'none';
+        document.getElementById('player').style.display = 'block';
+        document.getElementById('boss').style.display = 'block';
+        document.getElementById('controls').style.display = 'block';
+        loop();
+    }
+
+    function loop() {
+        if(!state.bossActive) return;
+        const p = document.getElementById('player');
+        p.style.left = state.px + 'px'; p.style.top = state.py + 'px';
+        const b = document.getElementById('boss');
+        const bx = window.innerWidth/2 + Math.sin(Date.now()/500) * 150 - 90;
+        const by = window.innerHeight/2 + Math.cos(Date.now()/800) * 80 - 90;
+        b.style.left = bx + 'px'; b.style.top = by + 'px';
+
+        const rad = state.swordDeg * Math.PI / 180;
+        const tx = state.px + Math.cos(rad) * 80;
+        const ty = state.py + Math.sin(rad) * 80;
+
+        if(Math.hypot(tx - (bx+90), ty - (by+90)) < 100) {
+            state.bossHp -= (state.pwr * (state.rebirths+1)) / 10;
+            document.getElementById('boss-hp').style.width = (state.bossHp / state.bMax * 100) + "%";
+            b.classList.add('boss-hit');
+            setTimeout(() => b.classList.remove('boss-hit'), 50);
+        }
+
+        if(Math.random() < 0.05) spawnBullet(bx+90, by+90);
+        updateBullets();
+        if(state.hp <= 0) { state.bossActive = false; document.getElementById('death-screen').style.display = 'flex'; }
+        if(state.bossHp <= 0) winBoss();
+        requestAnimationFrame(loop);
+    }
+
+    function spawnBullet(x, y) {
+        const el = document.createElement('div'); el.className = 'bullet';
+        document.body.appendChild(el);
+        const angle = Math.atan2(state.py - y, state.px - x);
+        state.bullets.push({ el, x, y, vx: Math.cos(angle)*6, vy: Math.sin(angle)*6 });
+    }
+
+    function updateBullets() {
+        for(let i = state.bullets.length-1; i>=0; i--) {
+            let b = state.bullets[i]; b.x += b.vx; b.y += b.vy;
+            b.el.style.left = b.x + 'px'; b.el.style.top = b.y + 'px';
+            if(Math.hypot(b.x - state.px, b.y - state.py) < 35) {
+                state.hp -= 20; b.el.remove(); state.bullets.splice(i, 1); updateUI();
+            } else if(b.x < -50 || b.x > window.innerWidth+50) { b.el.remove(); state.bullets.splice(i, 1); }
+        }
+    }
+
+    function winBoss() {
+        state.bossActive = false;
+        state.bullets.forEach(b => b.el.remove()); state.bullets = [];
+        document.getElementById('boss').style.display = 'none';
+        document.getElementById('player').style.display = 'none';
+        document.getElementById('controls').style.display = 'none';
+        document.getElementById('hero-click').style.display = 'block';
+        state.coins += 1000 * (state.rebirths + 1);
+        updateUI();
+    }
+
+    const shelf = document.getElementById('shelf');
+    skins.forEach(s => {
+        const img = document.createElement('img');
+        img.src = s; img.className = 'skin';
+        img.onclick = () => { state.skin = s; document.querySelectorAll('.skin').forEach(el => el.classList.remove('active')); img.classList.add('active'); updateUI(); };
+        shelf.appendChild(img);
+    });
+
+    updateUI();
+</script>
+</body>
+</html>
